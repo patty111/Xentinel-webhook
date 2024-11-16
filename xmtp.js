@@ -19,7 +19,6 @@ let xmtp;
         // await xmtp.conversations.sync();
 
         console.log('XMTP client initialized');
-        xmtp.conversations.updateV2Conversations
         const existConversations = await xmtp.conversations.list();
 
         for (let i = 0; i < existConversations.length; i++) {
