@@ -2,17 +2,16 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { sendEmail } = require('./smtp');
+const { sendEmail } = require('../smtp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
 
 // db
-const { turso } = require('./db/db');
+const { turso } = require('../db/db');
 
 // xmtp
-const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('./xmtp');
+const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('../xmtp');
 
 
 // Middleware to parse JSON bodies
@@ -22,10 +21,9 @@ let subscribers = [];
 let subscriber_email = [];
 
 
-app.get('/healthcheck', async (req, res) => {
-    res.status(200).send();
+app.get('/', (req, res) => {
+    res.status(200).send("HealthCheck ✅")
 });
-
 
 app.post('/webhook', async (req, res) => {
     console.log('Received webhook:', req.body);
@@ -51,42 +49,23 @@ app.post('/webhook', async (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
 function msgBuilder(event) {
-    try {
-        const timestamp = event[0].timestamp;
-        const hash = event[0].hash;
-        const network = event[0].monitor.network;
-        const chainId = event[0].monitor.chainId;
-        const blockscoutUrl = `${network}.blockscout.com/tx/${hash}`;
-        const multibaasUrl = `${process.env.MULTIBAAS_PROJECT_URL}/tx/${hash}`;
-
-        // Build query parameters
-        const queryParams = new URLSearchParams({
-            webhook: 'true',
-            hash: hash,
-            chainId: chainId,
-            network: network,
-            timestamp: timestamp,
-            blockscoutUrl: blockscoutUrl,
-            multibaasUrl: multibaasUrl
-        });
-
+    try { 
+        const network = event[0].monitor.network === 'mainnet' ? 'eth' : event[0].monitor.network;
         return (`
-    New transaction detected at ${timestamp}: \n
-    Hash: ${hash}\n
-    Network: ${network} (${chainId})\n
-    BlockScout Explorer: ${blockscoutUrl}\n
-    MultiBaas Explorer: ${multibaasUrl}\n
-    Frame URL: ${process.env.FRAME_BASE_URL}?${queryParams.toString()}\n`
+    New transaction detected at ${event[0].timestamp}: \n
+    Hash: ${event[0].hash}\n
+    Network: ${event[0].monitor.network} (${event[0].monitor.chainId})\n
+    BlockScout Explorer: ${event[0].monitor.network}.blockscout.com/tx/${event[0].hash}\n
+    MultiBaas Explorer: ${process.env.MULTIBAAS_PROJECT_URL}/tx/${event[0].hash}\n`
         );
     }
     catch (e) {
         console.error(e);
-        return 'Error building message';
     }
 }
 
