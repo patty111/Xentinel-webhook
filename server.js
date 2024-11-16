@@ -70,3 +70,5 @@ function msgBuilder(event) {
         console.error(e);
     }
 }
+
+module.exports = app;
