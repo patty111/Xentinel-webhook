@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const amqp = require('amqplib/callback_api');
+const { sendEmail } = require('./smtp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +19,7 @@ const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('.
 app.use(bodyParser.json());
 
 let subscribers = [];
+let subscriber_email = [];
 
 
 app.get('/healthcheck', async (req, res) => {
@@ -26,41 +27,27 @@ app.get('/healthcheck', async (req, res) => {
 });
 
 
-amqp.connect(RABBITMQ_URL, (error0, connection) => {
-    if (error0) {
-        throw error0;
-    }
-    connection.createChannel((error1, channel) => {
-        if (error1) {
-            throw error1;
-        } else {
-            console.log('Connected to RabbitMQ');
-        }
+app.post('/webhook', async (req, res) => {
+    console.log('Received webhook:', req.body);
 
-        const queue = 'zeppelin-defender-webhook';
+    let msg = JSON.stringify(req.body);
 
-        channel.assertQueue(queue, {
-            durable: false
-        });
+    // console.log(req.body.events[0].hash);
+    msg = req.body.events[0].transaction;
+    msg = msgBuilder(req.body.events);
+    console.log('msg:', msg);
+    
+    res.status(200).send('Webhook received, msg sent to subscribers');
+    
+    subscribers = (await turso.execute("SELECT address FROM subscribers")).rows;
+    subscribers = (subscribers.map(sub => sub.address));
 
-        app.post('/webhook', async (req, res) => {
-            console.log('Received webhook:', req.body);
+    subscriber_email = (await turso.execute("SELECT email FROM subscribers")).rows;
+    subscriber_email = subscriber_email.filter(row => row.email && row.email.trim() !== '').map(row => row.email);
+    console.log('subscriber_email:', subscriber_email);
 
-            // Add a task to the queue
-            let msg = JSON.stringify(req.body);
-            // channel.sendToQueue(queue, Buffer.from(msg));
-
-            msg = msgBuilder(req.body.events);
-            console.log('msg:', msg);
-            
-            
-            subscribers = (await turso.execute("SELECT address FROM subscribers")).rows;
-            subscribers = (subscribers.map(sub => sub.address));
-
-
-            res.status(200).send('Webhook received, msg sent to subscribers');
-        });
-    });
+    await sendEmail(subscriber_email, msg);
+    await broadCastSubscribers(subscribers, msg);
 });
 
 // Start the server
@@ -69,11 +56,17 @@ app.listen(PORT, async () => {
 });
 
 function msgBuilder(event) {
-    const network = event[0].monitor.network === 'mainnet' ? 'eth' : event[0].monitor.network;
-    return (`
-New transaction detected at ${event[0].timestamp}: \n
-Hash: ${event[0].hash}\n
-Network: ${event[0].monitor.network} (${event[0].monitor.chainId})\n
-BlockScout Explorer: ${event[0].monitor.network}.blockscout.com/tx/${event[0].hash}\n
-MultiBaas Explorer: ${process.env.MULTIBAAS_PROJECT_URL}/tx/${event[0].hash}\n`
-);}
+    try { 
+        const network = event[0].monitor.network === 'mainnet' ? 'eth' : event[0].monitor.network;
+        return (`
+    New transaction detected at ${event[0].timestamp}: \n
+    Hash: ${event[0].hash}\n
+    Network: ${event[0].monitor.network} (${event[0].monitor.chainId})\n
+    BlockScout Explorer: ${event[0].monitor.network}.blockscout.com/tx/${event[0].hash}\n
+    MultiBaas Explorer: ${process.env.MULTIBAAS_PROJECT_URL}/tx/${event[0].hash}\n`
+        );
+    }
+    catch (e) {
+        console.error(e);
+    }
+}
