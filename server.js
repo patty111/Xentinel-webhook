@@ -89,3 +89,5 @@ function msgBuilder(event) {
         return 'Error building message';
     }
 }
+
+module.exports = app;
