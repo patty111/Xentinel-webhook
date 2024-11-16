@@ -56,17 +56,36 @@ app.listen(PORT, async () => {
 });
 
 function msgBuilder(event) {
-    try { 
-        const network = event[0].monitor.network === 'mainnet' ? 'eth' : event[0].monitor.network;
+    try {
+        const timestamp = event[0].timestamp;
+        const hash = event[0].hash;
+        const network = event[0].monitor.network;
+        const chainId = event[0].monitor.chainId;
+        const blockscoutUrl = `${network}.blockscout.com/tx/${hash}`;
+        const multibaasUrl = `${process.env.MULTIBAAS_PROJECT_URL}/tx/${hash}`;
+
+        // Build query parameters
+        const queryParams = new URLSearchParams({
+            webhook: 'true',
+            hash: hash,
+            chainId: chainId,
+            network: network,
+            timestamp: timestamp,
+            blockscoutUrl: blockscoutUrl,
+            multibaasUrl: multibaasUrl
+        });
+
         return (`
-    New transaction detected at ${event[0].timestamp}: \n
-    Hash: ${event[0].hash}\n
-    Network: ${event[0].monitor.network} (${event[0].monitor.chainId})\n
-    BlockScout Explorer: ${event[0].monitor.network}.blockscout.com/tx/${event[0].hash}\n
-    MultiBaas Explorer: ${process.env.MULTIBAAS_PROJECT_URL}/tx/${event[0].hash}\n`
+    New transaction detected at ${timestamp}: \n
+    Hash: ${hash}\n
+    Network: ${network} (${chainId})\n
+    BlockScout Explorer: ${blockscoutUrl}\n
+    MultiBaas Explorer: ${multibaasUrl}\n
+    Frame URL: ${process.env.FRAME_BASE_URL}?${queryParams.toString()}\n`
         );
     }
     catch (e) {
         console.error(e);
+        return 'Error building message';
     }
 }
