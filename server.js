@@ -75,14 +75,7 @@ function msgBuilder(event) {
             multibaasUrl: multibaasUrl
         });
 
-        return (`
-    New transaction detected at ${timestamp}: \n
-    Hash: ${hash}\n
-    Network: ${network} (${chainId})\n
-    BlockScout Explorer: ${blockscoutUrl}\n
-    MultiBaas Explorer: ${multibaasUrl}\n
-    Frame URL: ${process.env.FRAME_BASE_URL}?${queryParams.toString()}\n`
-        );
+        return (`${process.env.FRAME_BASE_URL}?${queryParams.toString()}\n`);
     }
     catch (e) {
         console.error(e);
