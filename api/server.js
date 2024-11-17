@@ -2,17 +2,16 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { sendEmail } = require('./smtp');
+const { sendEmail } = require('../smtp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
 
 // db
-const { turso } = require('./db/db');
+const { turso } = require('../db/db');
 
 // xmtp
-const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('./xmtp');
+const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('../xmtp');
 
 
 // Middleware to parse JSON bodies
@@ -22,10 +21,9 @@ let subscribers = [];
 let subscriber_email = [];
 
 
-app.get('/healthcheck', async (req, res) => {
-    res.status(200).send();
+app.get('/', (req, res) => {
+    res.status(200).send("HealthCheck ✅")
 });
-
 
 app.post('/webhook', async (req, res) => {
     console.log('Received webhook:', req.body);
@@ -51,7 +49,7 @@ app.post('/webhook', async (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
@@ -79,7 +77,6 @@ function msgBuilder(event) {
     }
     catch (e) {
         console.error(e);
-        return 'Error building message';
     }
 }
 
