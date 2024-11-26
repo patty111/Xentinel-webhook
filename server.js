@@ -2,16 +2,16 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { sendEmail } = require('../smtp');
+const { sendEmail } = require('./smtp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // db
-const { turso } = require('../db/db');
+const { turso } = require('./db/db');
 
 // xmtp
-const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('../xmtp');
+const { sendMessage, checkGroupMessageValid, broadCastSubscribers } = require('./xmtp');
 
 
 // Middleware to parse JSON bodies
@@ -32,6 +32,7 @@ app.post('/webhook', async (req, res) => {
 
     // console.log(req.body.events[0].hash);
     msg = req.body.events[0].transaction;
+    let emailMsg = emailMsgBuilder(req.body.events);
     msg = msgBuilder(req.body.events);
     console.log('msg:', msg);
     
@@ -44,7 +45,7 @@ app.post('/webhook', async (req, res) => {
     subscriber_email = subscriber_email.filter(row => row.email && row.email.trim() !== '').map(row => row.email);
     console.log('subscriber_email:', subscriber_email);
 
-    await sendEmail(subscriber_email, msg);
+    await sendEmail(subscriber_email, emailMsg);
     await broadCastSubscribers(subscribers, msg);
 });
 
@@ -78,6 +79,17 @@ function msgBuilder(event) {
     catch (e) {
         console.error(e);
     }
+}
+
+function emailMsgBuilder(event) {
+    const network = event[0].monitor.network === 'mainnet' ? 'eth' : event[0].monitor.network;
+    return (`
+        New transaction detected at ${event[0].timestamp}: \n
+        Hash: ${event[0].hash}\n
+        Network: ${event[0].monitor.network} (${event[0].monitor.chainId})\n
+        BlockScout Explorer: ${event[0].monitor.network}.blockscout.com/tx/${event[0].hash}\n
+        MultiBaas Explorer: ${process.env.MULTIBAAS_PROJECT_URL}/tx/${event[0].hash}\n`
+    );
 }
 
 module.exports = app;

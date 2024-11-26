@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { createClient } = require("@libsql/client");
 
 const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL;
